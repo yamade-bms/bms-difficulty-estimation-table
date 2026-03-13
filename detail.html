@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <title>≒slst推定難易度表（詳細）</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="bmstable" content="header_detail.json" />
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ygbV9kiqUc6oa4msXn9868pTtWMgiQaeYH7/t7LECLbyPA2x65Kgf80OJFdroafW" crossorigin="anonymous">
+    </script>
+    <style>
+        /* テーブルの列幅を固定し、長い文字列は折り返す */
+        #table_int {
+            table-layout: fixed;
+            width: 100%;
+        }
+        #table_int td {
+            overflow-wrap: anywhere;
+            word-break: normal;
+        }
+
+        /* ヘッダ行のベース設定 */
+        .level-header td {
+            position: relative;
+        }
+
+        /* 左端に配置する開閉アイコン（右向きの三角形） */
+        .level-header td::before {
+            content: "";
+            position: absolute;
+            left: 15px; /* 左端からの位置 */
+            top: 50%;
+            transform: translateY(-50%);
+            /* CSSで三角形を描画 */
+            border-style: solid;
+            border-width: 6px 0 6px 10px;
+            border-color: transparent transparent transparent #fff; /* 白色の矢印 */
+            transition: transform 0.2s ease-in-out; /* 開閉時の回転アニメーション */
+        }
+
+        /* 展開時のアイコン（下向きに90度回転） */
+        .level-header.expanded td::before {
+            transform: translateY(-50%) rotate(90deg);
+        }
+    </style>
+</head>
+
+<body>
+    <header class="mb-3">
+        <nav class="navbar navbar-dark bg-dark">
+            <div class="container-fluid">
+                <span class="navbar-brand mb-0 h1">≒slst推定難易度表（詳細）</span>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container">
+
+        <div class="alert alert-success mb-3" role="alert">
+            <p>≒slst推定難易度表（詳細）</p>
+            <hr>
+            <p>
+                ▼ 難易度表について<br>
+                <ul>
+                    <li>
+                        ≒slst推定難易度表
+                        <ul>
+                            <li>
+                                <a href="https://yamade-bms.github.io/bms-difficulty-estimation-table/">https://yamade-bms.github.io/bms-difficulty-estimation-table/</a>
+                            </li>
+                            <li>
+                                ≒sl0, ≒sl1, ... , ≒st0, ≒st1, ... , ≒st12, ≒st+
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        ≒slst推定難易度表（slstなし）
+                        <ul>
+                            <li>
+                                <a href="https://yamade-bms.github.io/bms-difficulty-estimation-table/noslst.html">https://yamade-bms.github.io/bms-difficulty-estimation-table/noslst.html</a>
+                            </li>
+                            <li>
+                                ≒sl0, ≒sl1, ... , ≒st0, ≒st1, ... , ≒st12, ≒st+
+                            </li>
+                            <li>
+                                Satellite, Stella 収録曲を除外しています
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        ≒slst推定難易度表（詳細）
+                        <ul>
+                            <li>
+                                <a href="https://yamade-bms.github.io/bms-difficulty-estimation-table/detail.html">https://yamade-bms.github.io/bms-difficulty-estimation-table/detail.html</a>
+                            </li>
+                            <li>
+                                ≒sl-, ≒sl0-, ≒sl0, ≒sl0+, ... , ≒st0-, ≒st0, ≒st0+,  ... , ≒st12-, ≒st12, ≒st12+, ≒st+
+                            </li>
+                            <li>
+                                ≒sl- を含むため容量が大きいです
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                地力譜面を集めたものではなく、難易度表に収録されていない譜面の難易度を予測することを目的としています。<br>
+                外れ値の割合が大きいので、他の推定難易度表が出るまでの繋ぎとして使っていただければと思います。<br>
+                また、過去にbeatorajaで難易度を表示する<a href="https://github.com/yamade-bms/beatoraja-subdiff-sabun" target="_blank">スキン差分</a>を作っています。このようなものと併せると便利かもしれません。
+            </p>
+            <p>
+                ▼ 難易度推定について<br>
+                2026年2月頃の表を元にして機械学習で推定しています。<br>
+                以下の項目は考慮していません。<br>
+                特に、LN曲などは極端に過小評価されているので注意してください。
+                <ul>
+                    <li>
+                        難易度表の査定基準
+                    </li>
+                    <li>
+                        譜面の詳細な配置や出現パターン
+                    </li>
+                    <li>
+                        LNやソフラン、皿曲かどうか
+                    </li>
+                    <li>
+                        長い曲（一分半ほどに切り出しています）
+                    </li>
+                    <li>
+                        ≒sl-と≒sl0、≒st12と≒st+の境界
+                    </li>
+                </ul>
+            </p>
+            <p>
+                ▼ 参考データ
+                <ul>
+                    <li>
+                        <a href="./heatmap.png" target="_blank">交差検証の予測値の分布</a>
+                    </li>
+                    <li>
+                        <a href="./heatmap_ude.png" target="_blank">同時押しの難易度表との比較</a>
+                        <ul>
+                            <li>
+                                <a class='text-reset text-decoration-none' href="https://lets-go-time-hell.github.io/Arm-Shougakkou-table/" target="_blank">ウーデオシ小学校難易度表</a>
+                                、
+                                <a class='text-reset text-decoration-none' href="https://akaza2nd.github.io/zetsu/" target="_blank">腕ガチ難易度表</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="./heatmap_delay.png" target="_blank">ディレイの難易度表との比較</a>
+                        <ul>
+                            <li>
+                                <a class='text-reset text-decoration-none' href="https://wrench616.github.io/Delay/" target="_blank">Delay小学校難易度表</a>
+                                、
+                                <a class='text-reset text-decoration-none' href="https://lets-go-time-hell.github.io/Delay-joy-table/" target="_blank">ディレイjoy</a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="./feature_extraction.txt" target="_blank">特徴量について</a>
+                    </li>
+                </ul>
+            </p>
+            <p>
+                ▼ 参考にしました: <a href="https://note.com/rei_90529/n/n8fb9f45c4cd1" target="_blank">https://note.com/rei_90529/n/n8fb9f45c4cd1</a>
+            </p>
+            <p>
+                ▼ 最終更新: 2026/03/24
+            </p>
+            <p class="mb-0">
+                なにかあればご連絡ください。<br>
+                @yamade_bms
+            </p>
+        </div>
+
+
+        <!--ここから難易度表本体-->
+        <div style="min-height: 100vh;">
+            <div id="loadContainer" class="text-center mb-4">
+                <button id="btnLoadData" class="btn btn-outline-primary btn-lg">難易度表を読み込む</button>
+            </div>
+
+            <div id="controlsContainer" class="d-flex mb-3 gap-2 d-none">
+                <input type="text" id="searchInput" class="form-control" placeholder="曲名やアーティスト名で検索...">
+                <button id="btnExpandAll" class="btn btn-outline-secondary text-nowrap">すべて展開</button>
+                <button id="btnCollapseAll" class="btn btn-outline-secondary text-nowrap">すべて閉じる</button>
+                <button id="btnReload" class="btn btn-outline-secondary text-nowrap">再読み込み</button>
+            </div>
+
+            <table class="table table-light table-striped table-hover" id="table_int">
+            </table>
+        </div>
+
+        <script language="javascript" type="text/javascript">
+            var allData = []; // 全データを保持
+            var globalMark = ""; // 難易度記号を保持
+            var groupedData = {}; // レベルごとにグループ化したデータ
+
+            $(document).ready(function () {
+                // データ読み込み処理を関数化
+                function loadTableData(forceReload) {
+                    var $loadBtn = $("#btnLoadData");
+                    var $reloadBtn = $("#btnReload");
+                    
+                    $loadBtn.prop("disabled", true).text("読み込み中...");
+                    $reloadBtn.prop("disabled", true).text("通信中...");
+
+                    var headerUrl = $("meta[name=bmstable]").attr("content");
+                    // 強制リロード時はURL末尾にタイムスタンプを付与しキャッシュを回避
+                    if (forceReload) {
+                        headerUrl += "?t=" + new Date().getTime();
+                    }
+
+                    $.getJSON(headerUrl, function (header) {
+                        globalMark = header.symbol;
+                        var dataUrl = header.data_url;
+                        if (forceReload) {
+                            dataUrl += "?t=" + new Date().getTime();
+                        }
+
+                        $.getJSON(dataUrl, function (information) {
+                            allData = information;
+
+                            // 検索窓に文字が入力されている状態での再読み込みを考慮
+                            var keyword = $("#searchInput").val().toLowerCase();
+                            if (keyword) {
+                                var filteredData = allData.filter(function(item) {
+                                    var title = (item.title || "").toLowerCase();
+                                    var artist = (item.artist || "").toLowerCase();
+                                    return title.includes(keyword) || artist.includes(keyword);
+                                });
+                                renderHeaders(filteredData);
+                            } else {
+                                renderHeaders(allData);
+                            }
+
+                            $("#loadContainer").hide();
+                            $("#controlsContainer").removeClass("d-none");
+                            
+                            $loadBtn.prop("disabled", false).text("難易度表を読み込む");
+                            $reloadBtn.prop("disabled", false).text("再読み込み");
+                        }).fail(function() {
+                            alert("データ(score.json)の取得に失敗しました。");
+                            $loadBtn.prop("disabled", false).text("難易度表を読み込む");
+                            $reloadBtn.prop("disabled", false).text("再読み込み");
+                        });
+                    }).fail(function() {
+                        alert("ヘッダ情報の取得に失敗しました。");
+                        $loadBtn.prop("disabled", false).text("難易度表を読み込む");
+                        $reloadBtn.prop("disabled", false).text("再読み込み");
+                    });
+                }
+
+                // 読み込みボタンのイベント
+                $("#btnLoadData").on("click", function() {
+                    loadTableData(false);
+                });
+
+                // 再読み込みボタンのイベント（キャッシュリセット）
+                $("#btnReload").on("click", function() {
+                    loadTableData(true);
+                });
+
+                // 検索窓の入力イベント
+                $("#searchInput").on("input", function() {
+                    var keyword = $(this).val().toLowerCase();
+
+                    if (!keyword) {
+                        renderHeaders(allData);
+                        return;
+                    }
+
+                    // キーワードでフィルタリング
+                    var filteredData = allData.filter(function(item) {
+                        var title = (item.title || "").toLowerCase();
+                        var artist = (item.artist || "").toLowerCase();
+                        return title.includes(keyword) || artist.includes(keyword);
+                    });
+
+                    renderHeaders(filteredData);
+                });
+
+                // --- 検索窓でEnterを押した時のイベント ---
+                $("#searchInput").on("keydown", function(e) {
+                    // IME入力中（変換確定のためのEnterなど）は処理を中断
+                    if (e.isComposing) {
+                        return;
+                    }
+
+                    if (e.key === "Enter") {
+                        e.preventDefault(); // デフォルト動作をキャンセル
+                        $("#btnExpandAll").trigger("click");
+                    }
+                });
+
+                // すべて展開ボタン
+                $("#btnExpandAll").on("click", function() {
+                    // まだ展開されていないヘッダのみを対象にクリックイベントを発火させる
+                    $("#table_int .level-header:not(.expanded)").each(function() {
+                        $(this).trigger("click");
+                    });
+                });
+
+                // すべて閉じるボタン
+                $("#btnCollapseAll").on("click", function() {
+                    // 展開済みの状態をリセットし、コンテンツを一括削除する（高速処理）
+                    $("#table_int .level-header").removeClass("expanded");
+                    $("#table_int .level-content").empty();
+                });
+
+                // ヘッダクリック時の展開/折りたたみ処理（イベント委譲）
+                $("#table_int").on("click", ".level-header", function() {
+                    var $this = $(this);
+                    var level = $this.data("level");
+                    // クリックされたヘッダの次のtbody（データ格納用）を取得
+                    var $contentBody = $this.closest("tbody").next(".level-content");
+
+                    if ($this.hasClass("expanded")) {
+                        // tbodyの中身を一度に空にする（超高速）
+                        $contentBody.empty();
+                        $this.removeClass("expanded");
+
+                        var count = groupedData[level].length;
+                        $this.find("b").text(globalMark + level + " (" + count + ")");
+                    } else {
+                        var items = groupedData[level];
+                        var rowsHtml = [];
+
+                        for (var i = 0; i < items.length; i++) {
+                            var item = items[i];
+                            var subtitle = (item.subtitle != null && item.subtitle !== "") ? " " + item.subtitle : "";
+                            var subartist = (item.subartist != null && item.subartist !== "") ? " " + item.subartist : "";
+
+                            rowsHtml.push(
+                                "<tr>" +
+                                "<td>" + globalMark + level + "</td>" +
+                                "<td><a href='http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=" + item.md5 + "' target='_blank'>" + item.title + subtitle + "</a></td>" +
+                                "<td>" + item.artist + subartist + "</td>" +
+                                "<td><a href='http://mocha-repository.info/song.php?sha256=" + item.sha256 + "' target='_blank'><i class='bi bi-box-arrow-up-right'></i></a></td>" +
+                                "<td>" + item.comment + "</td>" +
+                                "</tr>"
+                            );
+                        }
+
+                        // tbodyの中に一括でHTMLを流し込む
+                        $contentBody.html(rowsHtml.join(""));
+                        $this.addClass("expanded");
+
+                        var count = groupedData[level].length;
+                        $this.find("b").text(globalMark + level + " (" + count + ")");
+                    }
+                });
+
+            });
+
+            // レベルごとのヘッダを描画する関数
+            function renderHeaders(dataToRender) {
+                groupedData = {};
+
+                for (var i = 0; i < dataToRender.length; i++) {
+                    var lv = dataToRender[i].level;
+                    if (!groupedData[lv]) {
+                        groupedData[lv] = [];
+                    }
+                    groupedData[lv].push(dataToRender[i]);
+                }
+
+                var obj = $("#table_int");
+                var htmlParts = ["<thead class='table-dark'><tr><th style='width: 10%;'>Level</th><th style='width: 45%;'>Title</th><th style='width: 30%;'>Artist</th><th style='width: 5%;'>mocha</th><th style='width: 10%;'>Comment</th></tr></thead>"];
+
+                for (var level in groupedData) {
+                    var count = groupedData[level].length;
+                    // ヘッダ用のtbodyと、データ用の空tbodyをセットで作成する
+                    htmlParts.push(
+                        "<tbody>" +
+                        "<tr class='table-dark level-header' data-level='" + level + "' style='cursor:pointer; text-align:center;'>" +
+                        "<td colspan='5'><b>" + globalMark + level + " (" + count + ")</b></td>" +
+                        "</tr>" +
+                        "</tbody>" +
+                        "<tbody class='level-content' data-level='" + level + "'></tbody>"
+                    );
+                }
+
+                obj.html(htmlParts.join(""));
+            }
+        </script>
+    </div>
+
+</html>
