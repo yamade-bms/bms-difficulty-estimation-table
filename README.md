@@ -1,2 +1,4 @@
-# BMS-Table-Template
-BMS難易度表のテンプレートです。
+# bms-difficulty-estimation-table
+
+https://yamade-bms.github.io/bms-difficulty-estimation-table/
+
