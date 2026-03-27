@@ -116,7 +116,7 @@ async function initApp() {
 function addTableRow(info, diff, isCached) {
     const row = resultTableBody.insertRow();
     const levelColor = diff.table.startsWith('st') ? 'text-danger' : 'text-primary';
-    const cacheBadge = isCached ? '<span class="badge bg-secondary text-light">学習対象</span>' : '';
+    const cacheBadge = isCached ? '<span class="badge bg-secondary text-light">参考値</span>' : '';
 
     const lr2irUrl = `http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=${info.md5}`;
     const mochaUrl = `https://mocha-repository.info/song.php?sha256=${info.sha256}`;
