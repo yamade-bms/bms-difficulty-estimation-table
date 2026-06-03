@@ -118,7 +118,7 @@ function addTableRow(info, diff, isCached) {
     const levelColor = diff.table.startsWith('st') ? 'text-danger' : 'text-primary';
     const cacheBadge = isCached ? '<span class="badge bg-secondary text-light">参考値</span>' : '';
 
-    const lr2irUrl = `http://www.dream-pro.info/~lavalse/LR2IR/search.cgi?mode=ranking&bmsmd5=${info.md5}`;
+    const bmsIrUrl = `https://bms-ir.org/new/song?songmd5=${info.md5}`;
     const mochaUrl = `https://mocha-repository.info/song.php?sha256=${info.sha256}`;
     
     row.innerHTML = `
@@ -131,7 +131,7 @@ function addTableRow(info, diff, isCached) {
         </td>
         <td class="text-truncate" style="max-width: 0;">${info.artist} ${info.subartist}</td>
         <td class="text-center">
-            <a href="${lr2irUrl}" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
+            <a href="${bmsIrUrl}" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
         </td>
         <td class="text-center">
             <a href="${mochaUrl}" target="_blank"><i class="bi bi-box-arrow-up-right"></i></a>
