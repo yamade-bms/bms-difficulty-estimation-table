@@ -341,8 +341,9 @@ export async function processBMSData(uint8array) {
         // オブジェクトを時間順に確実にソートして処理
         const bmsObjects = chart.objects.all().filter(obj => {
             const ch = parseInt(obj.channel, 10);
-            // 11-19: 通常ノーツ, 16: 皿, 51-59: LN, 56: LN皿
-            return (ch >= 11 && ch <= 19) || (ch >= 51 && ch <= 59);
+            // 11-19: 1P通常, 21-29: 2P通常, 51-59: 1P LN, 61-69: 2P LN
+            return (ch >= 11 && ch <= 19) || (ch >= 21 && ch <= 29) ||
+                   (ch >= 51 && ch <= 59) || (ch >= 61 && ch <= 69);
         }).sort((a, b) => {
             const beatA = chart.measureToBeat(a.measure, a.fraction);
             const beatB = chart.measureToBeat(b.measure, b.fraction);
@@ -353,7 +354,7 @@ export async function processBMSData(uint8array) {
             const laneIndex = getLaneIndexFor7Keys(obj.channel);
             if (laneIndex !== -1) {
                 const ch = parseInt(obj.channel, 10);
-                const isLNChannel = (ch >= 51 && ch <= 59);
+                const isLNChannel = (ch >= 51 && ch <= 59) || (ch >= 61 && ch <= 69);
                 
                 const calculatedBeat = chart.measureToBeat(obj.measure, obj.fraction);
                 const timeMs = Math.round(timing.beatToSeconds(calculatedBeat) * 1000);
@@ -413,10 +414,16 @@ export async function processBMSData(uint8array) {
 }
 
 function getLaneIndexFor7Keys(ch) {
-    const c = parseInt(ch, 10);
-    const base = (c >= 50 && c <= 59) ? c - 40 : c;
+    let c = parseInt(ch, 10);
+    // LNチャンネル (51-59, 61-69) を通常チャンネル (11-19, 21-29) にマッピング
+    if (c >= 51 && c <= 59) c -= 40;
+    else if (c >= 61 && c <= 69) c -= 40;
+    
+    // 2P側チャンネル (21-29) を1P側チャンネル (11-19) にマッピング
+    if (c >= 21 && c <= 29) c -= 10;
+
     const map = { 11: 0, 12: 1, 13: 2, 14: 3, 15: 4, 18: 5, 19: 6, 16: 7 };
-    return map[base] ?? -1;
+    return map[c] ?? -1;
 }
 
 

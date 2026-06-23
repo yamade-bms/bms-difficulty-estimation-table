@@ -193,7 +193,9 @@ bmsInput.addEventListener('change', async (event) => {
                                     // 7鍵プレイ用 + 時間計算に必要なチャンネルのみ残す
                                     const isRequiredCh = (
                                         (ch >= '11' && ch <= '16') || ch === '18' || ch === '19' ||
+                                        (ch >= '21' && ch <= '26') || ch === '28' || ch === '29' ||
                                         (ch >= '51' && ch <= '56') || ch === '58' || ch === '59' ||
+                                        (ch >= '61' && ch <= '66') || ch === '68' || ch === '69' ||
                                         ch === '03' || ch === '08' || ch === '09'
                                     );
                                     if (isRequiredCh) {
