@@ -16,7 +16,7 @@ export class BMSPyAnalyzer {
 
         // 1. Pyodide本体のロード
         this.pyodide = await loadPyodide();
-        
+
         // 2. NumPyパッケージのロード
         await this.pyodide.loadPackage("numpy");
 
@@ -36,7 +36,7 @@ class SongInfo:
         self.total_notes = total_notes
 
 class BMS:
-    TIME_LIMIT = 400.0
+    TIME_LIMIT = 400
 
     def __init__(self, timeline_master, song_info_dict):
         s = song_info_dict.to_py()
@@ -301,25 +301,25 @@ class BMS:
             stimes = times[strike_indices]
             s_keys = cluster_final_configs[:, :7]
 
-            drift_s_pure = np.zeros(M, dtype=np.float32)
-            gap_s_pure = np.zeros(M, dtype=np.float32)
-            h1_s = np.zeros(M, dtype=np.float32)
+            drift_strike_pure = np.zeros(M, dtype=np.float32)
+            gap_strike_pure = np.zeros(M, dtype=np.float32)
+            h1_strike = np.zeros(M, dtype=np.float32)
             
             arm_fatigue_strike_pure = np.zeros(M, dtype=np.float32)
             arm_fatigue_sq_strike_pure = np.zeros(M, dtype=np.float32)
 
             if M > 1:
-                drift_s_pure = get_centroid_drift(s_keys, stimes, k=4, limit=limit)
+                drift_strike_pure = get_centroid_drift(s_keys, stimes, k=4, limit=limit)
 
-                diffs_s = np.abs(np.diff(s_keys, axis=0, prepend=0)).sum(axis=1)
-                dt1_s = np.diff(stimes, prepend=stimes[0] - 1000.0)
-                h1_s = np.where(dt1_s <= limit, diffs_s, 0.0)
+                diffs_strike = np.abs(np.diff(s_keys, axis=0, prepend=0)).sum(axis=1)
+                dt1_strike = np.diff(stimes, prepend=stimes[0] - 1000.0)
+                h1_strike = np.where(dt1_strike <= limit, diffs_strike, 0.0)
 
                 if M > 2:
-                    dt2_s = stimes[2:] - stimes[:-2]
-                    dist2_s = np.abs(s_keys[2:] - s_keys[:-2]).sum(axis=1)
-                    h2_s = np.where(dt2_s <= limit, dist2_s, 0.0)
-                    gap_s_pure[2:] = np.maximum((h1_s[2:] + h1_s[1:-1]) - h2_s, 0.0)
+                    dt2_strike = stimes[2:] - stimes[:-2]
+                    dist2_strike = np.abs(s_keys[2:] - s_keys[:-2]).sum(axis=1)
+                    h2_strike = np.where(dt2_strike <= limit, dist2_strike, 0.0)
+                    gap_strike_pure[2:] = np.maximum((h1_strike[2:] + h1_strike[1:-1]) - h2_strike, 0.0)
 
                 TAU_ARM = TAU
                 
@@ -355,9 +355,9 @@ class BMS:
             arm_fatigue_timeline = np.zeros(num_events, dtype=np.float32)
             arm_fatigue_sq_timeline = np.zeros(num_events, dtype=np.float32)
 
-            drift_strike_timeline[strike_indices] = drift_s_pure
-            gap_strike_timeline[strike_indices] = gap_s_pure
-            clustered_movement_pure[strike_indices] = h1_s
+            drift_strike_timeline[strike_indices] = drift_strike_pure
+            gap_strike_timeline[strike_indices] = gap_strike_pure
+            clustered_movement_pure[strike_indices] = h1_strike
             lane_strike_timeline[strike_indices] = s_keys
             arm_fatigue_timeline[strike_indices] = arm_fatigue_strike_pure
             arm_fatigue_sq_timeline[strike_indices] = arm_fatigue_sq_strike_pure
@@ -826,9 +826,11 @@ class BMS:
         if f_button_count == 0:
             f_jack_ratio = 0.0
             f_jack_fatigue_ratio = 0.0
+            pass
         else:
             f_jack_ratio = f_jack / f_button_count
             f_jack_fatigue_ratio = f_jack_fatigue / f_button_count
+            pass
 
         return np.array([
             f_button_count,
@@ -914,7 +916,7 @@ class BMS:
      */
     getWindowMeta(startMs, endMs) {
         if (!this.pythonAnalyzer) throw new Error("BMSデータがロードされていません");
-        
+
         const pyProxy = this.pythonAnalyzer.get_window_meta(startMs, endMs);
         const result = pyProxy.toJs();
         pyProxy.destroy(); // メモリ解放
