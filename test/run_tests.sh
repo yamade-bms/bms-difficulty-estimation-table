@@ -29,25 +29,26 @@ for item in "${TEST_CASES[@]}"; do
     echo "Expected Result: $EXPECTED"
     echo "=================================================="
     
-    # 2. テスト用BMSファイルをコピー (コンテナ内からアクセスできるように一時配置)
+    # 2. テスト用BMSファイルをコピー (/tmp/table_test/test.bms として一時配置)
     if [ ! -f "../../bms-files/bms/$MD5" ]; then
         echo "Error: BMS file with MD5 $MD5 not found in bms-files/bms/"
         failed_tests=$((failed_tests + 1))
         continue
     fi
-    cp "../../bms-files/bms/$MD5" ./test.bms
+    mkdir -p /tmp/table_test
+    cp "../../bms-files/bms/$MD5" /tmp/table_test/test.bms
     
     # 3. 期待値データの生成 (正常に推定できるべき譜面のみ)
     if [ "$EXPECTED" = "success" ]; then
         echo "Generating expectations..."
-        # 期待値生成のため /test/out を空にする
-        rm -rf ./out/
+        # 期待値生成のため /tmp/table_test/expect_out を空にする
+        rm -rf /tmp/table_test/expect_out/
         uv run --with onnxruntime generate_expectations.py "$MD5"
     fi
     
-    # 4. Dockerでテストを実行
+    # 4. Dockerでテストを実行 (ホストの /tmp/table_test をコンテナ内の /tmp/table_test にマウント共有)
     cd ..
-    if ! docker run --rm -v "$(pwd):/app" bms-table-test node --experimental-network-imports test/test_inference.js "$MD5" "$EXPECTED"; then
+    if ! docker run --rm -v "$(pwd):/app" -v /tmp/table_test:/tmp/table_test bms-table-test node --experimental-network-imports test/test_inference.js "$MD5" "$EXPECTED"; then
         echo "-> TEST FAILED for MD5 $MD5"
         failed_tests=$((failed_tests + 1))
     else
@@ -57,8 +58,8 @@ for item in "${TEST_CASES[@]}"; do
 done
 
 # 後片付け
-rm -f ./test.bms
-rm -rf ./out/
+rm -rf /tmp/table_test
+
 
 if [ $failed_tests -gt 0 ]; then
     echo "=================================================="

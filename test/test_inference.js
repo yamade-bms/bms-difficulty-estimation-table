@@ -53,11 +53,11 @@ async function runTests() {
 
     console.log(`Starting test for MD5: ${md5} (Expected: ${expected})`);
     
-    // パス定義
-    const bmsPath = path.join(__dirname, 'test.bms');
-    const expectTimelinePath = path.join(__dirname, 'out/expect_timeline.json');
-    const expectInputXPath = path.join(__dirname, 'out/expect_input_x.json');
-    const expectPredsPath = path.join(__dirname, 'out/expect_predictions.json');
+    // パス定義 (/tmp/table_test/ 配下を使用)
+    const bmsPath = '/tmp/table_test/test.bms';
+    const expectTimelinePath = '/tmp/table_test/expect_out/expect_timeline.json';
+    const expectInputXPath = '/tmp/table_test/expect_out/expect_input_x.json';
+    const expectPredsPath = '/tmp/table_test/expect_out/expect_predictions.json';
 
     // 1. パーステスト
     console.log("\n[Test 1] Parsing consistency...");

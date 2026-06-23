@@ -57,19 +57,22 @@ def main():
     md5 = sys.argv[1]
 
     # キャッシュディレクトリを専用のものに設定
-    Utils.cache_root = '/tmp/bms_cache_table_test'
+    Utils.cache_root = '/tmp/table_test/bms_cache_table_test'
     if os.path.exists(Utils.cache_root):
         shutil.rmtree(Utils.cache_root)
     os.makedirs(Utils.cache_root, exist_ok=True)
     BMS.cache_root = Utils.cache_root
 
     local_dir = os.path.dirname(__file__)
-    bms_path = os.path.abspath(os.path.join(local_dir, f'../../bms-files/bms/{md5}'))
-    out_dir = os.path.join(local_dir, 'out')
+    # /tmp/table_test/test.bms から読み込み、/tmp/table_test/expect_out に出力する
+    bms_path = '/tmp/table_test/test.bms'
+    out_dir = '/tmp/table_test/expect_out'
+    if os.path.exists(out_dir):
+        shutil.rmtree(out_dir)
     os.makedirs(out_dir, exist_ok=True)
 
     if not os.path.exists(bms_path):
-        print(f"Error: test.bms not found at {bms_path}")
+        print(f"Error: test file not found at {bms_path}")
         sys.exit(1)
 
     # 1. BMSのパース (beatoraja.jar を使用)
