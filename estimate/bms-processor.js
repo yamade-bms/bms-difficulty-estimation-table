@@ -137,7 +137,7 @@ export async function calculateSHA256(uint8array) {
  * 3. EUC-JP (厳密)
  * 4. CP932 / Shift-JIS (最終フォールバック)
  */
-function smartDecode(uint8array) {
+export function smartDecode(uint8array) {
     // 1. UTF-8 BOM (EF BB BF) のチェック
     if (uint8array.length >= 3 && uint8array[0] === 0xef && uint8array[1] === 0xbb && uint8array[2] === 0xbf) {
         return new TextDecoder('utf-8').decode(uint8array);
