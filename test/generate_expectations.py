@@ -54,7 +54,7 @@ def main():
         print("Usage: python generate_expectations.py <md5>")
         sys.exit(1)
         
-    md5 = sys.argv[1]
+    case_id = sys.argv[1]
 
     # キャッシュディレクトリを専用のものに設定
     Utils.cache_root = '/tmp/table_test/bms_cache_table_test'

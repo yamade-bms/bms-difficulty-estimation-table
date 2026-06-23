@@ -43,15 +43,15 @@ function calculateIqrMean(preds, minIqr = 0.02) {
 }
 
 async function runTests() {
-    const md5 = process.argv[2];
+    const caseId = process.argv[2];
     const expected = process.argv[3]; // 'success' or 'error'
 
-    if (!md5 || !expected) {
-        console.error("Usage: node test_inference.js <md5> <success|error>");
+    if (!caseId || !expected) {
+        console.error("Usage: node test_inference.js <caseId> <success|error>");
         process.exit(1);
     }
 
-    console.log(`Starting test for MD5: ${md5} (Expected: ${expected})`);
+    console.log(`Starting test for Case: ${caseId} (Expected: ${expected})`);
     
     // パス定義 (/tmp/table_test/ 配下を使用)
     const bmsPath = '/tmp/table_test/test.bms';
