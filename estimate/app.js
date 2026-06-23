@@ -83,21 +83,21 @@ async function initApp() {
 
         await new Promise(r => setTimeout(r, 1500));
 
-        statusLog.textContent = "3/3 モデルをロード中 (0/25)...";
+        statusLog.textContent = "3/3 モデルをロード中 (0/15)...";
         ort.env.wasm.numThreads = 1;
         ort.env.wasm.simd = false; 
 
-        const runCount = 5;
+        const runCount = 3;
         const foldCount = 5;
 
         for (let r = 1; r <= runCount; r++) {
             for (let f = 1; f <= foldCount; f++) {
-                const session = await ort.InferenceSession.create(`./run${r}_fold${f}_single.onnx`, {
+                const session = await ort.InferenceSession.create(`./run${r}_fold${f}.onnx`, {
                     executionProviders: ['wasm'],
                     graphOptimizationLevel: 'all'
                 });
                 sessions.push(session);
-                statusLog.textContent = `3/3 モデルをロード中 (${sessions.length}/25)...`;
+                statusLog.textContent = `3/3 モデルをロード中 (${sessions.length}/15)...`;
                 await new Promise(r => setTimeout(r, 50));
             }
         }
@@ -181,8 +181,7 @@ bmsInput.addEventListener('change', async (event) => {
                 const tnsValue = finalSongInfo.total / finalSongInfo.total_notes;
 
                 const feeds = {
-                    x: new ort.Tensor('float32', inputX, [1, 600, 46]),
-                    tns: new ort.Tensor('float32', new Float32Array([tnsValue]), [1, 1])
+                    input_x: new ort.Tensor('float32', inputX, [1, 600, 58])
                 };
 
                 const allPreds = [];

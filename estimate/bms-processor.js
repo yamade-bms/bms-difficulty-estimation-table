@@ -42,8 +42,92 @@ export function calculateMD5(uint8array) {
 }
 
 export async function calculateSHA256(uint8array) {
-    const hashBuffer = await crypto.subtle.digest('SHA-256', uint8array);
-    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
+        try {
+            const hashBuffer = await crypto.subtle.digest('SHA-256', uint8array);
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (e) {
+            // fall back to pure JS implementation
+        }
+    }
+
+    // Pure JS SHA-256 fallback for non-secure contexts
+    const rightRotate = (value, amount) => (value >>> amount) | (value << (32 - amount));
+    const mathPow = Math.pow;
+    const maxWord = mathPow(2, 32);
+    
+    const hash = [];
+    const k = [];
+    let primeCounter = 0;
+    const isComposite = {};
+    for (let candidate = 2; primeCounter < 64; candidate++) {
+        if (!isComposite[candidate]) {
+            for (let i = 0; i < 313; i += candidate) {
+                isComposite[i] = 1;
+            }
+            hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+            k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+        }
+    }
+
+    const asciiLength = uint8array.length * 8;
+    // Align length to 64 bytes block boundary (with 8 bytes for length and 1 byte for padding)
+    const paddedLength = ((uint8array.length + 9 + 63) >>> 6) << 6;
+    const asciiBuffer = new Uint8Array(paddedLength);
+    asciiBuffer.set(uint8array);
+    asciiBuffer[uint8array.length] = 0x80;
+
+    const view = new DataView(asciiBuffer.buffer);
+    view.setUint32(paddedLength - 4, asciiLength >>> 0);
+    if (asciiLength > 0xffffffff) {
+        view.setUint32(paddedLength - 8, Math.floor(asciiLength / maxWord));
+    }
+
+    for (let i = 0; i < paddedLength; i += 64) {
+        const w = new Uint32Array(64);
+        for (let j = 0; j < 16; j++) {
+            w[j] = view.getUint32(i + j * 4);
+        }
+        for (let j = 16; j < 64; j++) {
+            const s0 = rightRotate(w[j - 15], 7) ^ rightRotate(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+            const s1 = rightRotate(w[j - 2], 17) ^ rightRotate(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+            w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+        }
+
+        let a = hash[0], b = hash[1], c = hash[2], d = hash[3], e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+        for (let j = 0; j < 64; j++) {
+            const S1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+            const ch = (e & f) ^ (~e & g);
+            const temp1 = (h + S1 + ch + k[j] + w[j]) | 0;
+            const S0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+            const maj = (a & b) ^ (a & c) ^ (b & c);
+            const temp2 = (S0 + maj) | 0;
+
+            h = g;
+            g = f;
+            f = e;
+            e = (d + temp1) | 0;
+            d = c;
+            c = b;
+            b = a;
+            a = (temp1 + temp2) | 0;
+        }
+
+        hash[0] = (hash[0] + a) | 0;
+        hash[1] = (hash[1] + b) | 0;
+        hash[2] = (hash[2] + c) | 0;
+        hash[3] = (hash[3] + d) | 0;
+        hash[4] = (hash[4] + e) | 0;
+        hash[5] = (hash[5] + f) | 0;
+        hash[6] = (hash[6] + g) | 0;
+        hash[7] = (hash[7] + h) | 0;
+    }
+
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += (hash[i] >>> 0).toString(16).padStart(8, '0');
+    }
+    return result;
 }
 
 /**
@@ -344,7 +428,7 @@ export async function prepareInferenceData(analyzer, song_info) {
     const windowSize = 600;
     const stride = 200;
     const maxWindows = 600; // モデルのシーケンス長 (seqLen)
-    const metaDim = 46;     // 特徴量の次元数
+    const metaDim = 58;     // 特徴量の次元数
 
     const tempMetas = [];
     const songLastMs = song_info.song_last_ms;

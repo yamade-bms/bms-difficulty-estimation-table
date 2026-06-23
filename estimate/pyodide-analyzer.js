@@ -152,26 +152,57 @@ class BMS:
         shape_flux_cum = get_cumsum(shape_flux_pure)
 
         lane_jack_map = np.zeros((num_events, 7), dtype=np.float32)
+        lane_fatigue_map = np.zeros((num_events, 7), dtype=np.float32)
+        lane_fatigue_sq_map = np.zeros((num_events, 7), dtype=np.float32)
+
+        TAU = 80.0
+
         for j in range(7):
             active_idx = np.flatnonzero(lane_data[:, j])
-            if active_idx.size > 1:
-                dist = np.diff(times[active_idx])
-                t_start = 140.0
-                t_full = 130.0
-                weight = np.clip((t_start - dist) / (t_start - t_full), 0, 1.0)
-                lane_jack_map[active_idx[1:], j] = weight * (t_start - dist)
+            if active_idx.size > 0:
+                if active_idx.size > 1:
+                    dist = np.diff(times[active_idx])
+                    t_start = 140.0
+                    t_full = 130.0
+                    weight = np.clip((t_start - dist) / (t_start - t_full), 0, 1.0)
+                    lane_jack_map[active_idx[1:], j] = weight * (t_start - dist)
+
+                dt = np.diff(times[active_idx], prepend=times[active_idx[0]] - 10000.0)
+                decay = np.exp(-dt / TAU)
+                
+                fatigue = np.zeros(len(active_idx), dtype=np.float32)
+                curr = 0.0
+                for i in range(len(active_idx)):
+                    curr = curr * decay[i] + 1.0
+                    fatigue[i] = curr
+                
+                bonus = np.maximum(fatigue - 1.0, 0.0)
+                
+                lane_fatigue_map[active_idx, j] = bonus
+                lane_fatigue_sq_map[active_idx, j] = bonus ** 2
 
         total_jack_at_evt = lane_jack_map.sum(axis=1)
         lane_jack_cum = get_cumsum(lane_jack_map)
+        
+        lane_fatigue_cum = get_cumsum(lane_fatigue_map)
+        lane_fatigue_sq_cum = get_cumsum(lane_fatigue_sq_map)
 
         is_jack_evt = (total_jack_at_evt > 0).astype(np.float32)
-
+        
         jack_chord_size_pure = notes_count_per_evt * is_jack_evt
         jack_chord_size_sq_pure = (notes_count_per_evt**2) * is_jack_evt
 
         is_jack_evt_cum = get_cumsum(is_jack_evt)
         jack_chord_size_cum = get_cumsum(jack_chord_size_pure)
         jack_chord_size_sq_cum = get_cumsum(jack_chord_size_sq_pure)
+
+        total_fatigue_at_evt = lane_fatigue_map.sum(axis=1)
+        
+        fatigue_chord_size_pure = total_fatigue_at_evt * notes_count_per_evt
+        fatigue_chord_size_sq_pure = total_fatigue_at_evt * (notes_count_per_evt**2)
+
+        fatigue_chord_size_cum = get_cumsum(fatigue_chord_size_pure)
+        fatigue_chord_size_sq_cum = get_cumsum(fatigue_chord_size_sq_pure)
 
         movement_cum = get_cumsum(movement_pure)
         movement_interaction_cum = get_cumsum(movement_pure * notes_count_per_evt)
@@ -190,35 +221,37 @@ class BMS:
             pad = np.zeros((lag, 7))
             lagged_lane = np.vstack([pad, lane_data[:-lag]])
             lagged_time = np.concatenate([np.full(lag, -1e9), times[:-lag]])
-
+            
             dt = times - lagged_time
-
+            
             mov = np.abs(lane_data - lagged_lane).sum(axis=1)
             mov = np.where(dt <= BMS.TIME_LIMIT, mov, 0.0)
             return get_cumsum(mov)
 
         num_constrained = (lane_jack_map > 0).sum(axis=1)
-
+        
         mov_sum_total = button_moving_sum_at_evt + scratch_moving_sum_at_evt
         jack_chord_conflict_delay_cum = get_cumsum(num_constrained * mov_sum_total)
+
+        fatigue_chord_conflict_delay_cum = get_cumsum(total_fatigue_at_evt * mov_sum_total)
 
         def get_centroid_drift(data, times, k, limit):
             num_events = len(times)
             acc_lane = np.zeros((num_events, 7), dtype=np.float32)
             acc_count = np.zeros(num_events, dtype=np.float32)
-
+            
             for i in range(1, k + 1):
                 lagged_lane = np.roll(data, i, axis=0)
                 lagged_time = np.roll(times, i)
-
+                
                 mask = (times - lagged_time <= limit) & (np.arange(num_events) >= i)
-
+                
                 acc_lane += lagged_lane * mask[:, None]
                 acc_count += mask
-
+            
             safe_count = np.maximum(acc_count, 1.0)
             posture_p = acc_lane / safe_count[:, None]
-
+            
             drift_step = np.abs(data - posture_p).sum(axis=1)
             drift_step = np.where(acc_count > 0, drift_step, 0.0)
             return drift_step
@@ -227,32 +260,32 @@ class BMS:
         centroid_drift_cum = get_cumsum(centroid_drift_pure)
 
         h1 = movement_pure
-
+        
         h2_pure = np.zeros(num_events)
         if num_events > 2:
             dt2 = times[2:] - times[:-2]
             dist2 = np.abs(lane_data[2:] - lane_data[:-2]).sum(axis=1)
             h2_pure[2:] = np.where(dt2 <= BMS.TIME_LIMIT, dist2, 0.0)
-
+        
         triangle_gap_pure = np.zeros(num_events)
         if num_events > 2:
             triangle_gap_pure[2:] = (h1[2:] + h1[1:-1]) - h2_pure[2:]
             triangle_gap_pure = np.maximum(triangle_gap_pure, 0.0)
-
+            
         triangle_gap_cum = get_cumsum(triangle_gap_pure)
 
         def get_cluster(threshold, limit):
             clustered_strike_starts = np.zeros(num_events, dtype=np.float32)
             clustered_strike_starts[0] = 1.0
             cluster_final_configs = []
-
+            
             curr_start_idx = 0
             active_lanes = all_notes[0].copy()
-
+            
             for i in range(1, num_events):
                 dt = times[i] - times[curr_start_idx]
                 has_lane_conflict = np.any((all_notes[i] > 0) & (active_lanes > 0))
-
+                
                 if dt <= threshold and not has_lane_conflict:
                     active_lanes = np.maximum(active_lanes, all_notes[i])
                 else:
@@ -260,7 +293,7 @@ class BMS:
                     clustered_strike_starts[i] = 1.0
                     curr_start_idx = i
                     active_lanes = all_notes[i].copy()
-
+            
             cluster_final_configs.append(active_lanes)
             cluster_final_configs = np.array(cluster_final_configs)
             strike_indices = np.flatnonzero(clustered_strike_starts)
@@ -271,6 +304,9 @@ class BMS:
             drift_s_pure = np.zeros(M, dtype=np.float32)
             gap_s_pure = np.zeros(M, dtype=np.float32)
             h1_s = np.zeros(M, dtype=np.float32)
+            
+            arm_fatigue_strike_pure = np.zeros(M, dtype=np.float32)
+            arm_fatigue_sq_strike_pure = np.zeros(M, dtype=np.float32)
 
             if M > 1:
                 drift_s_pure = get_centroid_drift(s_keys, stimes, k=4, limit=limit)
@@ -285,15 +321,46 @@ class BMS:
                     h2_s = np.where(dt2_s <= limit, dist2_s, 0.0)
                     gap_s_pure[2:] = np.maximum((h1_s[2:] + h1_s[1:-1]) - h2_s, 0.0)
 
+                TAU_ARM = TAU
+                
+                curr_fatigue = 1.0
+                last_fatigue_idx = 0
+                
+                arm_fatigue_strike_pure[0] = 0.0
+                arm_fatigue_sq_strike_pure[0] = 0.0
+
+                for i in range(1, M):
+                    has_jack = np.any((s_keys[last_fatigue_idx : i] > 0) & (s_keys[i] > 0))
+                    
+                    if has_jack:
+                        dt = stimes[i] - stimes[last_fatigue_idx]
+                        decay = np.exp(-dt / TAU_ARM)
+                        
+                        curr_fatigue = curr_fatigue * decay + 1.0
+                        
+                        bonus_strike = max(curr_fatigue - 1.0, 0.0)
+                        
+                        arm_fatigue_strike_pure[i] = bonus_strike
+                        arm_fatigue_sq_strike_pure[i] = bonus_strike ** 2
+                        
+                        last_fatigue_idx = i
+                    else:
+                        arm_fatigue_strike_pure[i] = 0.0
+                        arm_fatigue_sq_strike_pure[i] = 0.0
+
             drift_strike_timeline = np.zeros(num_events, dtype=np.float32)
             gap_strike_timeline = np.zeros(num_events, dtype=np.float32)
             clustered_movement_pure = np.zeros(num_events, dtype=np.float32)
             lane_strike_timeline = np.zeros((num_events, 7), dtype=np.float32)
+            arm_fatigue_timeline = np.zeros(num_events, dtype=np.float32)
+            arm_fatigue_sq_timeline = np.zeros(num_events, dtype=np.float32)
 
             drift_strike_timeline[strike_indices] = drift_s_pure
             gap_strike_timeline[strike_indices] = gap_s_pure
             clustered_movement_pure[strike_indices] = h1_s
             lane_strike_timeline[strike_indices] = s_keys
+            arm_fatigue_timeline[strike_indices] = arm_fatigue_strike_pure
+            arm_fatigue_sq_timeline[strike_indices] = arm_fatigue_sq_strike_pure
 
             cluster_sizes = cluster_final_configs.sum(axis=1)
             size_sum_pure = np.zeros(num_events, dtype=np.float32)
@@ -316,6 +383,8 @@ class BMS:
                 get_cumsum(drift_strike_timeline),
                 get_cumsum(gap_strike_timeline),
                 get_cumsum(lane_strike_timeline),
+                get_cumsum(arm_fatigue_timeline),
+                get_cumsum(arm_fatigue_sq_timeline),
             )
 
         (
@@ -327,47 +396,48 @@ class BMS:
             drift_strike_40_cum,
             gap_strike_40_cum,
             lane_strike_40_cum,
+            arm_fatigue_40_cum,
+            arm_fatigue_sq_40_cum,
         ) = get_cluster(40, limit=BMS.TIME_LIMIT)
-
 
         def extract_stream_features_global(times, lane_data):
             num_events = len(times)
-
+            
             ev_idx, l_idx = np.nonzero(lane_data[:, 0:7])
             if len(ev_idx) == 0:
                 return np.zeros(num_events), np.zeros(num_events), np.zeros(num_events)
-
+                
             t_idx = times[ev_idx]
             M = len(ev_idx)
-
+            
             next_node = np.full(M, -1, dtype=np.int32)
             in_degree = np.zeros(M, dtype=np.int32)
-
+            
             MAX_TIME = 100.0
             MAX_LANE = 4.0
             TIME_PENALTY = 0.015
             LOOKAHEAD = 8
-
+           
             for i in range(M):
                 end_idx = min(i + 1 + LOOKAHEAD, M)
                 if i + 1 == end_idx:
                     continue
-
+                    
                 c_t = t_idx[i+1 : end_idx]
                 c_l = l_idx[i+1 : end_idx]
                 c_used = in_degree[i+1 : end_idx]
-
+                
                 dt = c_t - t_idx[i]
                 dist = np.abs(c_l - l_idx[i])
-
+                
                 valid_mask = (dt <= MAX_TIME) & (dist <= MAX_LANE) & (c_used == 0)
-
+                
                 if not np.any(valid_mask):
                     continue
-
+                    
                 cost = np.where(valid_mask, dist + TIME_PENALTY * dt, np.inf)
                 best_local_idx = np.argmin(cost)
-
+                
                 best_global_idx = i + 1 + best_local_idx
                 next_node[i] = best_global_idx
                 in_degree[best_global_idx] += 1
@@ -375,31 +445,31 @@ class BMS:
             active_streams_pure = np.zeros(num_events, dtype=np.float32)
             strokes_pure = np.zeros(num_events, dtype=np.float32)
             crossings_pure = np.zeros(num_events, dtype=np.float32)
-
+            
             start_nodes = np.where(in_degree == 0)[0]
             edges = []
-
+            
             for start in start_nodes:
                 curr = start
                 current_dir = 0
                 while next_node[curr] != -1:
                     nxt = next_node[curr]
-
+                    
                     ev_u, ev_v = ev_idx[curr], ev_idx[nxt]
                     t_u, t_v   = t_idx[curr], t_idx[nxt]
                     l_u, l_v   = l_idx[curr], l_idx[nxt]
-
+                    
                     edges.append((ev_u, t_u, l_u, ev_v, t_v, l_v))
-
+                    
                     active_streams_pure[ev_u : ev_v] += 1
-
+                    
                     dist_val = l_v - l_u
                     if dist_val != 0:
                         new_dir = 1 if dist_val > 0 else -1
                         if current_dir != new_dir:
                             strokes_pure[ev_v] += 1
                             current_dir = new_dir
-
+                            
                     curr = nxt
 
             def ccw(tA, lA, tB, lB, tC, lC):
@@ -412,7 +482,7 @@ class BMS:
 
             edges.sort(key=lambda e: e[1])
             E_len = len(edges)
-
+            
             for i in range(E_len):
                 evA, tA, lA, evB, tB, lB = edges[i]
                 for j in range(i + 1, E_len):
@@ -430,11 +500,10 @@ class BMS:
             stream_strokes_pure,
             stream_crossings_pure
         ) = extract_stream_features_global(times, lane_data)
-
+        
         stream_active_cum = get_cumsum(stream_active_streams_pure)
         stream_strokes_cum = get_cumsum(stream_strokes_pure)
         stream_crossings_cum = get_cumsum(stream_crossings_pure)
-
 
         self.meta_master = {
             "ms_to_idx": ms_to_idx,
@@ -467,11 +536,18 @@ class BMS:
             "movement_lag4_cum": get_lag_cum(4),
             "lane_jack_cum": lane_jack_cum,
 
+            "lane_fatigue_cum": lane_fatigue_cum,
+            "lane_fatigue_sq_cum": lane_fatigue_sq_cum,
+
             "is_jack_evt_cum": is_jack_evt_cum,
             "jack_chord_size_cum": jack_chord_size_cum,
             "jack_chord_size_sq_cum": jack_chord_size_sq_cum,
 
+            "fatigue_chord_size_cum": fatigue_chord_size_cum,
+            "fatigue_chord_size_sq_cum": fatigue_chord_size_sq_cum,
+
             "jack_chord_conflict_delay_cum": jack_chord_conflict_delay_cum,
+            "fatigue_chord_conflict_delay_cum": fatigue_chord_conflict_delay_cum,
             "intervals": intervals,
 
             "centroid_drift_cum": centroid_drift_cum,
@@ -485,6 +561,8 @@ class BMS:
             "drift_strike_40_cum": drift_strike_40_cum,
             "gap_strike_40_cum": gap_strike_40_cum,
             "lane_strike_40_cum": lane_strike_40_cum,
+            "arm_fatigue_40_cum": arm_fatigue_40_cum,
+            "arm_fatigue_sq_40_cum": arm_fatigue_sq_40_cum,
 
             "stream_active_cum": stream_active_cum,
             "stream_strokes_cum": stream_strokes_cum,
@@ -596,6 +674,29 @@ class BMS:
         f_jack = np.sum(lane_jack)
         f_wide_2_jack = np.sum(mm["lane_jack_cum"][idx_s] - mm["lane_jack_cum"][idx_w2_s])
 
+        lane_fatigue = from_cum("lane_fatigue_cum")
+        f_jack_fatigue = np.sum(lane_fatigue)
+        f_jack_fatigue_sq = np.sum(from_cum("lane_fatigue_sq_cum"))
+
+        active_fatigues = lane_fatigue[lane_fatigue > 0]
+        if active_fatigues.size > 0:
+            f_fatigue_mean = np.mean(active_fatigues)
+        else:
+            f_fatigue_mean = 0.0
+
+        f_fatigue_chord_conflict_delay = from_cum("fatigue_chord_conflict_delay_cum")
+
+        fatigue_chord_size_sum = from_cum("fatigue_chord_size_cum")
+        fatigue_chord_size_sq_sum = from_cum("fatigue_chord_size_sq_cum")
+
+        if f_jack_fatigue > 0:
+            f_chord_fatigue_size_mean = fatigue_chord_size_sum / f_jack_fatigue
+            var_f = max((fatigue_chord_size_sq_sum / f_jack_fatigue) - (f_chord_fatigue_size_mean**2), 0.0)
+            f_chord_fatigue_size_cv = np.sqrt(var_f) / f_chord_fatigue_size_mean if f_chord_fatigue_size_mean > 0 else 0.0
+        else:
+            f_chord_fatigue_size_mean = 0.0
+            f_chord_fatigue_size_cv = 0.0
+
         active_jacks = lane_jack[lane_jack > 0]
         if active_jacks.size > 0:
             f_jack_mean = np.mean(active_jacks)
@@ -625,13 +726,13 @@ class BMS:
         if count_5s >= 8:
             intervals_5s = mm["intervals"][idx_5s_s:idx_e]
 
-            rhythm_base_candidates = intervals_5s[(intervals_5s > 5.0) & (intervals_5s <= BMS.TIME_LIMIT)] 
+            rhythm_base_candidates = intervals_5s[(intervals_5s > 5.0) & (intervals_5s <= BMS.TIME_LIMIT)]
 
             if len(rhythm_base_candidates) >= 4:
                 vals, counts = np.unique(np.round(rhythm_base_candidates), return_counts=True)
                 mode_interval = vals[np.argmax(counts)]
 
-                mode_interval = max(mode_interval, 18.0) 
+                mode_interval = max(mode_interval, 18.0)
 
                 if idx_e > idx_s:
                     win_intervals = mm["intervals"][idx_s:idx_e]
@@ -666,7 +767,7 @@ class BMS:
             count = from_cum(f"clustered_strike_count_{prefix}_cum")
             s_sum = from_cum(f"clustered_strike_size_{prefix}_cum")
             s_sq_sum = from_cum(f"clustered_strike_sizesq_{prefix}_cum")
-
+            
             if count > 0:
                 mean = s_sum / count
                 var = max((s_sq_sum / count) - (mean ** 2), 0)
@@ -694,11 +795,20 @@ class BMS:
             s_lane_counts = from_cum("lane_strike_40_cum")
             p_s = s_lane_counts / strike_count_40
             f_radius_gyration_strike_40 = np.sum(2 * p_s * (1.0 - p_s))
+
+            f_arm_fatigue_40_sum = from_cum("arm_fatigue_40_cum")
+            f_arm_fatigue_sq_40_sum = from_cum("arm_fatigue_sq_40_cum")
+            f_arm_fatigue_40_mean = f_arm_fatigue_40_sum / strike_count_40
+            f_arm_fatigue_sq_40_mean = f_arm_fatigue_sq_40_sum / strike_count_40
         else:
             f_drift_velocity_strike_40 = 0.0
             f_triangle_gap_rate_strike_40 = 0.0
             f_radius_gyration_strike_40 = 0.0
 
+            f_arm_fatigue_40_sum = 0.0
+            f_arm_fatigue_sq_40_sum = 0.0
+            f_arm_fatigue_40_mean = 0.0
+            f_arm_fatigue_sq_40_mean = 0.0
 
         f_stream_active = from_cum("stream_active_cum")
         f_stream_strokes = from_cum("stream_strokes_cum")
@@ -713,8 +823,12 @@ class BMS:
             f_stream_strokes_rate = 0.0
             f_stream_crossings_rate = 0.0
 
-
-
+        if f_button_count == 0:
+            f_jack_ratio = 0.0
+            f_jack_fatigue_ratio = 0.0
+        else:
+            f_jack_ratio = f_jack / f_button_count
+            f_jack_fatigue_ratio = f_jack_fatigue / f_button_count
 
         return np.array([
             f_button_count,
@@ -742,16 +856,30 @@ class BMS:
             f_movement_lag3,
             f_movement_lag4,
             f_jack,
+
+            f_jack_fatigue,
+            f_jack_fatigue_sq,
+            f_fatigue_mean,
+            f_fatigue_chord_conflict_delay,
+            f_chord_fatigue_size_mean,
+            f_chord_fatigue_size_cv,
+
             f_jack_mean,
             f_jack_chord_conflict_delay,
             f_chord_jack_size_mean,
             f_chord_jack_size_cv,
+
             f_ratio_mean,
             f_ratio_cv,
 
             f_drift_velocity,
             f_triangle_gap_rate,
             f_radius_gyration,
+
+            f_arm_fatigue_40_sum,
+            f_arm_fatigue_sq_40_sum,
+            f_arm_fatigue_40_mean,
+            f_arm_fatigue_sq_40_mean,
 
             f_strike_count_40,
             f_strike_jitter_40,
@@ -767,6 +895,8 @@ class BMS:
             f_stream_strokes_rate,
             f_stream_crossings_rate,
 
+            f_jack_ratio,
+            f_jack_fatigue_ratio,
         ], dtype=np.float32)
         `);
     }
