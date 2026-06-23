@@ -178,7 +178,6 @@ bmsInput.addEventListener('change', async (event) => {
 
                 analyzer.loadBMS(timeline_master, finalSongInfo);
                 const inputX = await prepareInferenceData(analyzer, finalSongInfo);
-                const tnsValue = finalSongInfo.total / finalSongInfo.total_notes;
 
                 const feeds = {
                     input_x: new ort.Tensor('float32', inputX, [1, 600, 58])
