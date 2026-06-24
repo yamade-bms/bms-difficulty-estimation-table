@@ -42,9 +42,13 @@ docker build -t bms-table-test -f test/Dockerfile .
 cd test
 
 failed_tests=0
+TARGET_CASE="$1"
 
 for item in "${TEST_CASES[@]}"; do
     IFS=':' read -r CASE_ID EXPECTED INFO <<< "$item"
+    if [ -n "$TARGET_CASE" ] && [ "$CASE_ID" != "$TARGET_CASE" ]; then
+        continue
+    fi
     echo "=================================================="
     echo "Testing Case: $CASE_ID"
     echo "Info: $INFO"

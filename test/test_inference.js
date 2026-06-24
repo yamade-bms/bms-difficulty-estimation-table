@@ -105,6 +105,14 @@ async function runTests() {
                 if (j === 0) {
                     // 時間（ミリ秒）は浮動小数点誤差による1ms以内のズレを許容する
                     if (Math.abs(timeline_master[i][j] - expectTimeline[i][j]) > 1) {
+                        console.log("\n=== TIMELINE MISMATCH DETAIL ===");
+                        console.log(`Mismatch at row ${i} (col ${j}): JS=${timeline_master[i][j]} ms, Python=${expectTimeline[i][j]} ms (Diff=${timeline_master[i][j] - expectTimeline[i][j]} ms)`);
+                        console.log("Printing surrounding rows (index, JS, Python, Diff):");
+                        for (let k = Math.max(0, i - 10); k <= Math.min(timeline_master.length - 1, i + 10); k++) {
+                            const marker = k === i ? ">>> " : "    ";
+                            const diff = timeline_master[k][0] - expectTimeline[k][0];
+                            console.log(`${marker}Row ${k}: JS=${timeline_master[k][0]} ms | Py=${expectTimeline[k][0]} ms | Diff=${diff} ms | JS_Notes=${JSON.stringify(timeline_master[k].slice(1))} | Py_Notes=${JSON.stringify(expectTimeline[k].slice(1))}`);
+                        }
                         throw new Error(`Timeline time mismatch at row ${i}: JS=${timeline_master[i][j]}, python=${expectTimeline[i][j]}`);
                     }
                 } else {

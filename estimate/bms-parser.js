@@ -298,6 +298,7 @@ export function parseBMS(text) {
     let basetl = {
         section: 0.0,
         time: 0.0,
+        rawTime: 0.0,
         bpm: init_bpm,
         scroll: 1.0,
         stop: 0,
@@ -329,12 +330,14 @@ export function parseBMS(text) {
         }
         let lastKey = activeSections[lastKeyIdx];
         let le = timelines[lastKey];
-        let time = le.time + le.stop + (240000.0 * 1000.0 * (section - lastKey)) / le.bpm;
-        time = Math.floor(time);
+        
+        // 浮動小数点の精度を維持したまま時間を累積する
+        let time = le.rawTime + le.stop + (240000.0 * 1000.0 * (section - lastKey)) / le.bpm;
 
         let tl = {
             section: section,
-            time: time,
+            time: Math.floor(time),
+            rawTime: time,
             bpm: le.bpm,
             scroll: le.scroll,
             stop: 0,
