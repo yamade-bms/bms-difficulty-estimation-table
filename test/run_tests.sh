@@ -53,10 +53,10 @@ for item in "${TEST_CASES[@]}"; do
     
     # 2. テスト用BMSファイルをコピー (/tmp/table_test/test.bms として一時配置)
     mkdir -p /tmp/table_test
-    if [ -f "bms/${CASE_ID}.bms" ]; then
-        cp "bms/${CASE_ID}.bms" /tmp/table_test/test.bms
+    if [ -f "test_charts/${CASE_ID}.bms" ]; then
+        cp "test_charts/${CASE_ID}.bms" /tmp/table_test/test.bms
     else
-        echo "Error: BMS file bms/${CASE_ID}.bms not found"
+        echo "Error: BMS file test_charts/${CASE_ID}.bms not found"
         failed_tests=$((failed_tests + 1))
         continue
     fi
@@ -66,7 +66,7 @@ for item in "${TEST_CASES[@]}"; do
         echo "Generating expectations..."
         # 期待値生成のため /tmp/table_test/expect_out を空にする
         rm -rf /tmp/table_test/expect_out/
-        uv run --with onnxruntime generate_expectations.py "$CASE_ID"
+        uv run --project ../../bms-difficulty-estimation/local_estimation --with onnxruntime generate_expectations.py "$CASE_ID"
     fi
     
     # 4. Dockerでテストを実行 (ホストの /tmp/table_test をコンテナ内の /tmp/table_test にマウント共有)
