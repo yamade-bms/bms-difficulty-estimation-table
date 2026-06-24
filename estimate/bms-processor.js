@@ -1,6 +1,11 @@
 // bms-processor.js
-import * as bms from 'https://esm.sh/bms';
+import { parseBMS } from './bms-parser.js';
 
+/**
+ * バイナリデータからMD5ハッシュ文字列を計算します。
+ * @param {Uint8Array} uint8array - 入力データ
+ * @returns {string} MD5ハッシュ文字列
+ */
 export function calculateMD5(uint8array) {
     const n = uint8array.length;
     const words = new Uint32Array(((n + 11) >> 6) + 1 << 4);
@@ -36,11 +41,16 @@ export function calculateMD5(uint8array) {
         a = (a + aa) | 0; b = (b + bb) | 0; c = (c + cc) | 0; d = (d + dd) | 0;
     }
 
-    return [a, b, c, d].map(v => 
+    return [a, b, c, d].map(v =>
         (v >>> 0).toString(16).padStart(8, '0').match(/../g).reverse().join('')
     ).join('');
 }
 
+/**
+ * バイナリデータからSHA256ハッシュ文字列を計算します。
+ * @param {Uint8Array} uint8array - 入力データ
+ * @returns {Promise<string>} SHA256ハッシュ文字列のPromise
+ */
 export async function calculateSHA256(uint8array) {
     if (typeof crypto !== 'undefined' && crypto.subtle && crypto.subtle.digest) {
         try {
@@ -55,7 +65,7 @@ export async function calculateSHA256(uint8array) {
     const rightRotate = (value, amount) => (value >>> amount) | (value << (32 - amount));
     const mathPow = Math.pow;
     const maxWord = mathPow(2, 32);
-    
+
     const hash = [];
     const k = [];
     let primeCounter = 0;
@@ -66,7 +76,7 @@ export async function calculateSHA256(uint8array) {
                 isComposite[i] = 1;
             }
             hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
-            k[primeCounter++] = (mathPow(candidate, 1/3) * maxWord) | 0;
+            k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
         }
     }
 
@@ -136,6 +146,8 @@ export async function calculateSHA256(uint8array) {
  * 2. UTF-8 (厳密)
  * 3. EUC-JP (厳密)
  * 4. CP932 / Shift-JIS (最終フォールバック)
+ * @param {Uint8Array} uint8array - BMSファイルのバイナリデータ
+ * @returns {string} デコードされた文字列
  */
 export function smartDecode(uint8array) {
     // 1. UTF-8 BOM (EF BB BF) のチェック
@@ -166,21 +178,22 @@ export function smartDecode(uint8array) {
 /**
  * 譜面のヘッダー情報（タイトル・アーティスト・ハッシュ）だけを高速に取得する
  * タイムライン（timeline_master）の構築は行わない
+ * @param {Uint8Array} uint8array - BMSファイルのバイナリデータ
+ * @returns {Promise<import("./bms-parser.js").SongInfo>} ヘッダー情報のオブジェクト
  */
 export async function getSongHeaders(uint8array) {
     // JSON(bmson)かどうかの判定
     let isJson = false;
-    for(let i=0; i<Math.min(uint8array.length, 100); i++) {
+    for (let i = 0; i < Math.min(uint8array.length, 100); i++) {
         if (uint8array[i] === 0x7b) { isJson = true; break; }
         if (uint8array[i] > 0x20) break;
     }
 
     const text = smartDecode(uint8array)
-    let info = {};
     if (isJson) {
         const data = JSON.parse(text);
         const bInfo = data.info || {};
-        info = {
+        return {
             title: bInfo.title || '',
             subtitle: bInfo.subtitle || (bInfo.chart_name ? `[${bInfo.chart_name}]` : ''),
             artist: bInfo.artist || '',
@@ -188,17 +201,15 @@ export async function getSongHeaders(uint8array) {
             total: parseFloat(bInfo.total) || 100
         };
     } else {
-        const headers = bms.Compiler.compile(text).chart.headers;
-        info = {
-            title: headers.get('title') || '',
-            subtitle: headers.get('subtitle') || '',
-            artist: headers.get('artist') || '',
-            subartist: headers.get('subartist') || '',
-            total: parseFloat(headers.get('total')) || 200
+        const res = parseBMS(text);
+        return {
+            title: res.song_info.title,
+            subtitle: res.song_info.subtitle,
+            artist: res.song_info.artist,
+            subartist: res.song_info.subartist,
+            total: res.song_info.total
         };
     }
-
-    return info;
 }
 
 
@@ -210,7 +221,7 @@ function parseBmson(uint8array) {
     const data = JSON.parse(text);
 
     const info = data.info || {};
-    const resolution = info.resolution || 240; 
+    const resolution = info.resolution || 240;
     const initBpm = info.init_bpm;
 
     if (initBpm === undefined) throw new Error("info.init_bpm が指定されていません。");
@@ -241,7 +252,7 @@ function parseBmson(uint8array) {
         const elapsedPulses = y - lastY;
         currentMs += (elapsedPulses / resolution) * (60 / currentBpm) * 1000;
         if (bpmMap[y] !== undefined) currentBpm = bpmMap[y];
-        yToMs.set(y, Math.round(currentMs));
+        yToMs.set(y, Math.floor(currentMs));
         if (stopMap[y] !== undefined) {
             currentMs += (stopMap[y] / resolution) * (60 / currentBpm) * 1000;
         }
@@ -259,7 +270,7 @@ function parseBmson(uint8array) {
             if (bpmMap[sortedY[i]] !== undefined) activeBpm = bpmMap[sortedY[i]];
         }
         const extraPulses = y - baseY;
-        return Math.round(yToMs.get(baseY) + (extraPulses / resolution) * (60 / activeBpm) * 1000);
+        return Math.floor(yToMs.get(baseY) + (extraPulses / resolution) * (60 / activeBpm) * 1000);
     }
 
     // --- 2. ノーツ抽出 ---
@@ -316,122 +327,48 @@ function parseBmson(uint8array) {
     return { timeline_master, song_info };
 }
 
-
 /**
- * 拡張版：processBMSData
+ * BMSファイルのバイナリデータをパースし、タイムラインと曲情報を返します。
+ * @param {Uint8Array} uint8array - BMSファイルのバイナリデータ
+ * @returns {Promise<import("./bms-parser.js").BMSParseResult>} タイムライン(timeline_master)と曲情報(song_info)を含むオブジェクト
  */
 export async function processBMSData(uint8array) {
-    const isJson = (uint8array[0] === 0x7b); 
+    const isJson = (uint8array[0] === 0x7b);
 
-    let result;
     if (isJson) {
-        result = parseBmson(uint8array);
+        return parseBmson(uint8array);
     } else {
-        // 従来のBMSパース
-        const text = smartDecode(uint8array)
-        const chart = bms.Compiler.compile(text).chart;
-        const timing = bms.Timing.fromBMSChart(chart);
+        let text = smartDecode(uint8array);
+        let res = parseBMS(text);
 
-        const extractedNotes = [];
-        let has6thOr7thKey = false;
-        
-        // LNの開始・終了を判定するためのステータス
-        const lnStates = new Array(8).fill(false); 
-
-        // オブジェクトを時間順に確実にソートして処理
-        const bmsObjects = chart.objects.all().filter(obj => {
-            const ch = parseInt(obj.channel, 10);
-            // 11-19: 1P通常, 21-29: 2P通常, 51-59: 1P LN, 61-69: 2P LN
-            return (ch >= 11 && ch <= 19) || (ch >= 21 && ch <= 29) ||
-                   (ch >= 51 && ch <= 59) || (ch >= 61 && ch <= 69);
-        }).sort((a, b) => {
-            const beatA = chart.measureToBeat(a.measure, a.fraction);
-            const beatB = chart.measureToBeat(b.measure, b.fraction);
-            return beatA - beatB;
-        });
-
-        bmsObjects.forEach(obj => {
-            const laneIndex = getLaneIndexFor7Keys(obj.channel);
-            if (laneIndex !== -1) {
-                const ch = parseInt(obj.channel, 10);
-                const isLNChannel = (ch >= 51 && ch <= 59) || (ch >= 61 && ch <= 69);
-                
-                const calculatedBeat = chart.measureToBeat(obj.measure, obj.fraction);
-                const timeMs = Math.round(timing.beatToSeconds(calculatedBeat) * 1000);
-
-                if (isLNChannel) {
-                    if (!lnStates[laneIndex]) {
-                        // LNの開始点（1つ目のオブジェクト）のみを採用
-                        extractedNotes.push({ time: timeMs, lane: laneIndex });
-                        lnStates[laneIndex] = true;
-                    } else {
-                        // LNの終了点（2つ目のオブジェクト）なので状態をリセットし、追加はしない
-                        lnStates[laneIndex] = false;
-                    }
-                } else {
-                    // 通常ノーツ
-                    extractedNotes.push({ time: timeMs, lane: laneIndex });
-                }
-
-                if (laneIndex === 5 || laneIndex === 6) has6thOr7thKey = true;
-            }
-        });
-
-        if (extractedNotes.length === 0) throw new Error("ノーツなし");
-        if (!has6thOr7thKey) throw new Error("7鍵ではありません");
-
-        extractedNotes.sort((a, b) => a.time - b.time);
-
-        const timeline_master = [];
-        let current_time = -1;
-        let this_timeline = null;
-        for (const note of extractedNotes) {
-            if (note.time !== current_time) {
-                if (this_timeline !== null) timeline_master.push(this_timeline);
-                this_timeline = new Array(9).fill(0);
-                current_time = note.time;
-                this_timeline[0] = current_time;
-            }
-            this_timeline[note.lane + 1] = 1;
+        if (res.timeline_master.length === 0) {
+            throw new Error("ノーツなし");
         }
-        if (this_timeline !== null) timeline_master.push(this_timeline);
 
-        result = {
-            timeline_master,
-            song_info: {
-                title: chart.headers.get('title') || '',
-                subtitle: chart.headers.get('subtitle') || '',
-                artist: chart.headers.get('artist') || '',
-                subartist: chart.headers.get('subartist') || '',
-                song_last_ms: extractedNotes.length > 0 ? extractedNotes[extractedNotes.length - 1].time : 0,
-                total: parseFloat(chart.headers.get('total')) || 200,
-                total_notes: extractedNotes.length
+        let has6thOr7thKey = false;
+        for (let row of res.timeline_master) {
+            if (row[6] === 1 || row[7] === 1) {
+                has6thOr7thKey = true;
+                break;
             }
-        };
+        }
+        if (!has6thOr7thKey) {
+            throw new Error("7鍵ではありません");
+        }
+
+        return res;
     }
-
-    return result;
-}
-
-function getLaneIndexFor7Keys(ch) {
-    let c = parseInt(ch, 10);
-    // LNチャンネル (51-59, 61-69) を通常チャンネル (11-19, 21-29) にマッピング
-    if (c >= 51 && c <= 59) c -= 40;
-    else if (c >= 61 && c <= 69) c -= 40;
-    
-    // 2P側チャンネル (21-29) を1P側チャンネル (11-19) にマッピング
-    if (c >= 21 && c <= 29) c -= 10;
-
-    const map = { 11: 0, 12: 1, 13: 2, 14: 3, 15: 4, 18: 5, 19: 6, 16: 7 };
-    return map[c] ?? -1;
 }
 
 
 /**
  * Pythonの BMSDataset.from_raw_list ロジックを再現し、
- * ONNXモデルに入力可能な Float32Array を生成する
+ * ONNXモデルに入力可能な Float32Array を生成する。
+ * @param {Object} analyzer - ウィンドウ特徴量を計算するアナライザークラスのインスタンス
+ * @param {import("./bms-parser.js").SongInfo} song_info - 曲情報オブジェクト
+ * @returns {Float32Array} 推論用入力テンソル用の平坦化データ
  */
-export async function prepareInferenceData(analyzer, song_info) {
+export function prepareInferenceData(analyzer, song_info) {
     const windowSize = 600;
     const stride = 200;
     const maxWindows = 600; // モデルのシーケンス長 (seqLen)
@@ -484,7 +421,7 @@ export async function prepareInferenceData(analyzer, song_info) {
     // 実際に使用する窓を抽出
     const finalMetas = tempMetas.slice(startIdx, Math.min(startIdx + maxWindows, validLength));
 
-    // 4. [1, 600, 46] の Tensor 用に Flat な Float32Array を作成
+    // 4. [1, 600, 58] の Tensor 用に Flat な Float32Array を作成
     const inputBuffer = new Float32Array(maxWindows * metaDim); // 全て0で初期化される
 
     // 5. データのコピー（右詰め）
@@ -499,6 +436,14 @@ export async function prepareInferenceData(analyzer, song_info) {
     return inputBuffer;
 }
 
+/**
+ * @typedef {Object} DifficultyDetail
+ * @property {string} table - テーブル名 ('sl-', 'sl', 'st', 'st+')
+ * @property {number} level - 正規化を解除したレベル数値
+ * @property {string} display - 表示用文字列 (例: 'sl10.5')
+ * @property {string} label - ラベル用文字列 (例: 'sl11')
+ * @property {string} sub_label - サブカテゴリ表示用 (例: 'sl11+')
+ */
 
 /**
  * 推論値 [0, 1] を BMS の難易度表記 (sl/st) にマッピングするクラス
@@ -512,6 +457,10 @@ export class BMSDifficultyMapper {
 
     /**
      * サブレベル文字列 (X-, X, X+) を判定する内部メソッド
+     * @private
+     * @param {number} rawVal - 生レベル数値
+     * @param {string} prefix - テーブル接頭辞 ('sl' or 'st')
+     * @returns {string} サブレベル文字列 (例: 'sl11+')
      */
     _getSubLabel(rawVal, prefix) {
         const baseX = Math.floor(rawVal + 0.5);
@@ -531,6 +480,8 @@ export class BMSDifficultyMapper {
 
     /**
      * 推論値 y [0, 1] を受け取り、難易度オブジェクトに変換する
+     * @param {number} y - ONNXモデルの予測値
+     * @returns {DifficultyDetail} 難易度情報オブジェクト
      */
     denormalize(y) {
         // クランプ処理
@@ -538,7 +489,7 @@ export class BMSDifficultyMapper {
 
         const thresholdSlMinus = 0.5 / this.total_div;
         const thresholdStStart = 13.5 / this.total_div;
-        const thresholdStPlus  = 26.5 / this.total_div;
+        const thresholdStPlus = 26.5 / this.total_div;
 
         if (y < thresholdSlMinus) {
             return {
