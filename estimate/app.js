@@ -93,7 +93,7 @@ async function initApp() {
 
         for (let r = 1; r <= runCount; r++) {
             for (let f = 1; f <= foldCount; f++) {
-                const session = await ort.InferenceSession.create(`./run${r}_fold${f}.onnx`, {
+                const session = await ort.InferenceSession.create(`./run${r}_fold${f}.onnx?v=2`, {
                     executionProviders: ['wasm'],
                     graphOptimizationLevel: 'all'
                 });
@@ -182,7 +182,7 @@ bmsInput.addEventListener('change', async (event) => {
                 const inputX = await prepareInferenceData(analyzer, finalSongInfo);
 
                 const feeds = {
-                    input_x: new ort.Tensor('float32', inputX, [1, 600, 58])
+                    input_x: new ort.Tensor('float32', inputX, [1, 300, 58])
                 };
 
                 const allPreds = [];

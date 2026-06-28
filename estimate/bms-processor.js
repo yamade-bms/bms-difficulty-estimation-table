@@ -427,9 +427,9 @@ export async function processBMSData(uint8array) {
  * @returns {Float32Array} 推論用入力テンソル用の平坦化データ
  */
 export function prepareInferenceData(analyzer, song_info) {
-    const windowSize = 600;
-    const stride = 200;
-    const maxWindows = 600; // モデルのシーケンス長 (seqLen)
+    const windowSize = 1600;
+    const stride = 400;
+    const maxWindows = 300; // モデルのシーケンス長 (seqLen)
     const metaDim = 58;     // 特徴量の次元数
 
     const tempMetas = [];

@@ -149,7 +149,7 @@ async function runTests() {
             const flatInput = new Float32Array(inputXList.flat());
 
             const feeds = {
-                input_x: new ort.Tensor('float32', flatInput, [1, 600, 58])
+                input_x: new ort.Tensor('float32', flatInput, [1, 300, 58])
             };
 
             const estimateDir = path.resolve(__dirname, '../estimate');

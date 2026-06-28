@@ -12,9 +12,9 @@ from estimate11 import BMS
 from utils import Utils
 
 def prepare_onnx_input(bms_obj):
-    window_size = 600
-    stride = 200
-    max_windows = 600
+    window_size = 1600
+    stride = 400
+    max_windows = 300
     meta_dim = 58
     
     temp_metas = []
