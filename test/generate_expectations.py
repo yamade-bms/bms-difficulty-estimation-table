@@ -97,34 +97,57 @@ def main():
     print("Extracting features...")
     onnx_input = prepare_onnx_input(bms_obj)
     
-    # 3. ONNX推論の実行
-    print("Running ONNX inference...")
-    try:
-        import onnxruntime as ort
-    except ImportError:
-        print("Warning: onnxruntime not found. Skipping python inference expectation generation.")
-        # onnxruntimeがない場合は、予測期待値のJSON出力はスキップします
-        # (JS側で推論が動くかどうかの確認のみになります)
-        ort = None
+    # 3. ONNX推論とPyTorch(pth)推論の比較
+    print("Running ONNX and PyTorch comparison...")
+    import onnxruntime as ort
+    import torch
 
     expect_preds = []
-    if ort:
-        estimate_dir = os.path.abspath(os.path.join(local_dir, '../estimate'))
-        onnx_input_tensor = np.expand_dims(onnx_input, axis=0) # [1, 600, 58]
-        
-        # 25個のモデルで推論
-        run_count = 5
-        fold_count = 5
-        for r in range(1, run_count + 1):
-            for f in range(1, fold_count + 1):
-                model_path = os.path.join(estimate_dir, f"run{r}_fold{f}.onnx")
-                if os.path.exists(model_path):
-                    session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
-                    outputs = session.run(None, {'input_x': onnx_input_tensor})
-                    pred = float(outputs[0][0][0])
-                    expect_preds.append(pred)
-                else:
-                    print(f"Warning: {model_path} not found.")
+    # pthモデルのロード
+    local_est_dir = os.path.abspath(os.path.join(local_dir, '../../bms-difficulty-estimation/local_estimation'))
+    sys.path.append(local_est_dir)
+    from estimate import load_models
+    
+    device = torch.device("cpu")
+    train_data_dir = os.path.join(local_est_dir, 'train_data')
+    pth_models, _ = load_models(train_data_dir, device)
+    
+    estimate_dir = os.path.abspath(os.path.join(local_dir, '../estimate'))
+    onnx_input_tensor = np.expand_dims(onnx_input, axis=0) # [1, 300, 58]
+    x_tensor = torch.from_numpy(onnx_input).unsqueeze(0).to(device)
+    
+    # 25個のモデルで推論と比較
+    run_count = 5
+    fold_count = 5
+    model_idx = 0
+    
+    for r in range(1, run_count + 1):
+        for f in range(1, fold_count + 1):
+            pth_model = pth_models[model_idx]
+            model_idx += 1
+            
+            # PyTorch推論
+            with torch.no_grad():
+                pth_out = pth_model(x_tensor, None)[0]
+                pth_pred = float(pth_out.view(-1).item())
+            
+            # ONNX推論
+            model_path = os.path.join(estimate_dir, f"run{r}_fold{f}.onnx")
+            if os.path.exists(model_path):
+                session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+                outputs = session.run(None, {'input_x': onnx_input_tensor})
+                onnx_pred = float(outputs[0][0][0])
+                
+                # 期待値との比較
+                diff = abs(pth_pred - onnx_pred)
+                if diff > 1e-4:
+                    raise AssertionError(
+                        f"Mismatch between PTH and ONNX for run{r}_fold{f}: "
+                        f"PTH={pth_pred:.6f}, ONNX={onnx_pred:.6f}, diff={diff:.2e}"
+                    )
+                expect_preds.append(onnx_pred)
+            else:
+                raise FileNotFoundError(f"ONNX model not found: {model_path}")
 
     # JSON出力
     with open(os.path.join(out_dir, 'expect_timeline.json'), 'w', encoding='utf-8') as f:
@@ -133,12 +156,9 @@ def main():
     with open(os.path.join(out_dir, 'expect_input_x.json'), 'w', encoding='utf-8') as f:
         json.dump(onnx_input.tolist(), f, ensure_ascii=False, indent=2)
 
-    if expect_preds:
-        with open(os.path.join(out_dir, 'expect_predictions.json'), 'w', encoding='utf-8') as f:
-            json.dump({"predictions": expect_preds}, f, ensure_ascii=False, indent=2)
-        print(f"Generated expectations with {len(expect_preds)} model predictions.")
-    else:
-        print("Generated timeline and input_x expectations.")
+    with open(os.path.join(out_dir, 'expect_predictions.json'), 'w', encoding='utf-8') as f:
+        json.dump({"predictions": expect_preds}, f, ensure_ascii=False, indent=2)
+    print(f"Generated expectations with {len(expect_preds)} model predictions.")
 
 if __name__ == '__main__':
     main()
