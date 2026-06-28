@@ -358,7 +358,8 @@ export async function processBMSData(uint8array) {
                                 (ch >= '21' && ch <= '26') || ch === '28' || ch === '29' ||
                                 (ch >= '51' && ch <= '56') || ch === '58' || ch === '59' ||
                                 (ch >= '61' && ch <= '66') || ch === '68' || ch === '69' ||
-                                ch === '03' || ch === '08' || ch === '09'
+                                ch === '01' || ch === '02' || ch === '03' || ch === '04' ||
+                                ch === '06' || ch === '07' || ch === '08' || ch === '09'
                             );
                             if (isRequiredCh) {
                                 cleanLines.push(line);
