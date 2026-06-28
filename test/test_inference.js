@@ -153,7 +153,7 @@ async function runTests() {
             };
 
             const estimateDir = path.resolve(__dirname, '../estimate');
-            const runCount = 3;
+            const runCount = 5;
             const foldCount = 5;
             const jsPreds = [];
 

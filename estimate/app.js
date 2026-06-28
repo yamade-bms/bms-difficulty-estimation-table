@@ -84,11 +84,11 @@ async function initApp() {
 
         await new Promise(r => setTimeout(r, 1500));
 
-        statusLog.textContent = "3/3 モデルをロード中 (0/15)...";
+        statusLog.textContent = "3/3 モデルをロード中 (0/25)...";
         ort.env.wasm.numThreads = 1;
         ort.env.wasm.simd = false; 
 
-        const runCount = 3;
+        const runCount = 5;
         const foldCount = 5;
 
         for (let r = 1; r <= runCount; r++) {
@@ -98,7 +98,7 @@ async function initApp() {
                     graphOptimizationLevel: 'all'
                 });
                 sessions.push(session);
-                statusLog.textContent = `3/3 モデルをロード中 (${sessions.length}/15)...`;
+                statusLog.textContent = `3/3 モデルをロード中 (${sessions.length}/25)...`;
                 await new Promise(r => setTimeout(r, 50));
             }
         }

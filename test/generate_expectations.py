@@ -112,8 +112,8 @@ def main():
         estimate_dir = os.path.abspath(os.path.join(local_dir, '../estimate'))
         onnx_input_tensor = np.expand_dims(onnx_input, axis=0) # [1, 600, 58]
         
-        # 15個のモデルで推論
-        run_count = 3
+        # 25個のモデルで推論
+        run_count = 5
         fold_count = 5
         for r in range(1, run_count + 1):
             for f in range(1, fold_count + 1):
