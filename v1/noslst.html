@@ -2,11 +2,11 @@
 <html lang="ja">
 
     <head>
-        <title>≒slst推定難易度表（詳細）</title>
+        <title>≒slst推定難易度表（slstなし） v1</title>
         <meta charset="UTF-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="bmstable" content="header_detail.json" />
+        <meta name="bmstable" content="header_noslst.json" />
         <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-giJF6kkoqNQ00vy+HMDP7azOuL0xtbfIcaT9wjKHr8RbDVddVHyTfAAsrekwKmP1" crossorigin="anonymous">
@@ -55,7 +55,7 @@
         <header class="mb-3">
             <nav class="navbar navbar-dark bg-dark">
                 <div class="container-fluid">
-                    <span id="header" class="navbar-brand mb-0 h1">≒slst推定難易度表（詳細）</span>
+                    <span id="header" class="navbar-brand mb-0 h1">≒slst推定難易度表（slstなし） v1</span>
                 </div>
             </nav>
         </header>
@@ -63,7 +63,15 @@
         <div class="container">
 
             <div class="alert alert-success mb-3" role="alert">
-                <p id="title">≒slst推定難易度表（詳細）</p>
+                <p id="title">≒slst推定難易度表（slstなし） v1</p>
+                <hr>
+                <div class="alert alert-warning" role="alert">
+                    <strong>こちらは過去の推定結果 v1 のページです。</strong><br>
+                    最新の推定難易度表は以下のリンクからアクセスしてください。<br>
+                    <ul class="mb-0">
+                        <li><a href="../noslst.html">最新の≒slst推定難易度表（slstなし）</a></li>
+                    </ul>
+                </div>
                 <hr>
                 <p>
                     ▼ 難易度表について<br>
@@ -107,14 +115,6 @@
                                 </li>
                             </ul>
                         </li>
-                        <li>
-                            過去の推定結果
-                            <ul>
-                                <li>
-                                    <a href="./v1/index.html">https://yamade-bms.github.io/bms-difficulty-estimation-table/v1/</a>
-                                </li>
-                            </ul>
-                        </li>
                     </ul>
                     地力譜面を集めたものではなく、難易度表に収録されていない譜面の難易度を予測することを目的としています。<br>
                     外れ値の割合が大きいので、参考程度に考えてください。
@@ -150,6 +150,26 @@
                             <a href="./heatmap.png" target="_blank">交差検証の予測値の分布</a>
                         </li>
                         <li>
+                            <a href="./heatmap_ude.png" target="_blank">同時押しの難易度表との比較</a>
+                            <ul>
+                                <li>
+                                    <a class='text-reset text-decoration-none' href="https://lets-go-time-hell.github.io/Arm-Shougakkou-table/" target="_blank">ウーデオシ小学校難易度表</a>
+                                    、
+                                    <a class='text-reset text-decoration-none' href="https://akaza2nd.github.io/zetsu/" target="_blank">腕ガチ難易度表</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
+                            <a href="./heatmap_delay.png" target="_blank">ディレイの難易度表との比較</a>
+                            <ul>
+                                <li>
+                                    <a class='text-reset text-decoration-none' href="https://wrench616.github.io/Delay/" target="_blank">Delay小学校難易度表</a>
+                                    、
+                                    <a class='text-reset text-decoration-none' href="https://lets-go-time-hell.github.io/Delay-joy-table/" target="_blank">ディレイjoy</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li>
                             <a href="./feature_extraction.txt" target="_blank">特徴量について</a>
                         </li>
                     </ul>
@@ -158,10 +178,7 @@
                     ▼ 譜面分析
                     <ul>
                         <li>
-                            <a href="./estimate/" target="_blank">こちらのページ</a>で手元の譜面を推定させることができます
-                        </li>
-                        <li>
-                            重いので注意してください
+                            最新のページでのみ使用可能です
                         </li>
                     </ul>
                 </p>
