@@ -163,71 +163,6 @@ bmsInput.addEventListener('change', async (event) => {
             const md5 = calculateMD5(uint8array);
             const sha256 = await calculateSHA256(uint8array);
 
-            let uint8arrayForParsing = uint8array;
-            let objectCount = 0;
-
-            if (uint8array.length > 1000000) {
-                // smartDecode を用いてテキストを一時デコードしてオブジェクト数をスキャン
-                // (ハッシュ計算やパース処理によるブラウザのフリーズを防ぐため)
-                const text = smartDecode(uint8array);
-                if (text.trim().startsWith('{')) {
-                    try {
-                        const data = JSON.parse(text);
-                        if (data.sound_channels) {
-                            for (const channel of data.sound_channels) {
-                                if (channel.notes) objectCount += channel.notes.length;
-                            }
-                        }
-                    } catch (e) {}
-                } else {
-                    const lines = text.split('\n');
-                    const cleanLines = [];
-                    for (let i = 0; i < lines.length; i++) {
-                        const line = lines[i].trim();
-                        if (line.startsWith('#')) {
-                            if (line.includes(':')) {
-                                const parts = line.split(':');
-                                if (parts.length >= 2 && parts[0].length >= 6) {
-                                    // チャンネル部分（4文字目から2文字）を抽出
-                                    const ch = parts[0].substring(4, 6);
-                                    // 7鍵プレイ用 + 時間計算に必要なチャンネルのみ残す
-                                    const isRequiredCh = (
-                                        (ch >= '11' && ch <= '16') || ch === '18' || ch === '19' ||
-                                        (ch >= '21' && ch <= '26') || ch === '28' || ch === '29' ||
-                                        (ch >= '51' && ch <= '56') || ch === '58' || ch === '59' ||
-                                        (ch >= '61' && ch <= '66') || ch === '68' || ch === '69' ||
-                                        ch === '03' || ch === '08' || ch === '09'
-                                    );
-                                    if (isRequiredCh) {
-                                        cleanLines.push(line);
-                                        objectCount += parts[1].trim().length / 2;
-                                    }
-                                }
-                            } else {
-                                // 不要な定義ヘッダー（WAV, BMP, BGA）を除外してメタデータ行を残す
-                                const upperLine = line.toUpperCase();
-                                const isUnusedHeader = (
-                                    upperLine.startsWith('#WAV') || 
-                                    upperLine.startsWith('#BMP') ||
-                                    upperLine.startsWith('#BGA')
-                                );
-                                if (!isUnusedHeader) {
-                                    cleanLines.push(line);
-                                }
-                            }
-                        }
-                    }
-
-                    if (objectCount > 100000) {
-                        throw new Error(`譜面のオブジェクト数が多すぎます (約 ${Math.round(objectCount)} オブジェクト)。10万オブジェクト以内の譜面のみ推定可能です。`);
-                    }
-
-                    // 軽量化したテキストを再エンコードしてパース処理に渡す
-                    const cleanText = cleanLines.join('\n');
-                    uint8arrayForParsing = new TextEncoder().encode(cleanText);
-                }
-            }
-
             let rawScore;
             let isCached = false;
             let finalSongInfo = null;
@@ -235,14 +170,10 @@ bmsInput.addEventListener('change', async (event) => {
             if (oofDict[md5] && oofDict[md5].label !== 0.0) {
                 rawScore = oofDict[md5].pred;
                 isCached = true;
-                finalSongInfo = await getSongHeaders(uint8arrayForParsing);
+                finalSongInfo = await getSongHeaders(uint8array);
             } else {
                 statusLog.textContent = `解析中: ${file.name}...`;
-                const { timeline_master, song_info } = await processBMSData(uint8arrayForParsing);
-                
-                if (song_info.song_last_ms > 3600000) {
-                    throw new Error(`譜面が長すぎます (${Math.round(song_info.song_last_ms / 1000 / 60)}分)。1時間以内の譜面のみ推定可能です。`);
-                }
+                const { timeline_master, song_info } = await processBMSData(uint8array);
 
                 finalSongInfo = song_info;
                 finalSongInfo.md5 = md5;

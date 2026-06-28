@@ -335,11 +335,58 @@ function parseBmson(uint8array) {
 export async function processBMSData(uint8array) {
     const isJson = (uint8array[0] === 0x7b);
 
+    let res;
     if (isJson) {
-        return parseBmson(uint8array);
+        res = parseBmson(uint8array);
     } else {
         let text = smartDecode(uint8array);
-        let res = parseBMS(text);
+
+        // 1MBを超える巨大テキストの軽量化＆オブジェクト数事前スキャン (ブラウザフリーズ対策)
+        if (uint8array.length > 1000000) {
+            let objectCount = 0;
+            const lines = text.split(/\r?\n/);
+            const cleanLines = [];
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('#')) {
+                    if (line.includes(':')) {
+                        const parts = line.split(':');
+                        if (parts.length >= 2 && parts[0].length >= 6) {
+                            const ch = parts[0].substring(4, 6);
+                            const isRequiredCh = (
+                                (ch >= '11' && ch <= '16') || ch === '18' || ch === '19' ||
+                                (ch >= '21' && ch <= '26') || ch === '28' || ch === '29' ||
+                                (ch >= '51' && ch <= '56') || ch === '58' || ch === '59' ||
+                                (ch >= '61' && ch <= '66') || ch === '68' || ch === '69' ||
+                                ch === '03' || ch === '08' || ch === '09'
+                            );
+                            if (isRequiredCh) {
+                                cleanLines.push(line);
+                                objectCount += parts[1].trim().length / 2;
+                            }
+                        }
+                    } else {
+                        const upperLine = line.toUpperCase();
+                        const isUnusedHeader = (
+                            upperLine.startsWith('#WAV') || 
+                            upperLine.startsWith('#BMP') ||
+                            upperLine.startsWith('#BGA')
+                        );
+                        if (!isUnusedHeader) {
+                            cleanLines.push(line);
+                        }
+                    }
+                }
+            }
+
+            if (objectCount > 100000) {
+                throw new Error(`譜面のオブジェクト数が多すぎます (約 ${Math.round(objectCount)} オブジェクト)。10万オブジェクト以内の譜面のみ推定可能です。`);
+            }
+
+            text = cleanLines.join('\n');
+        }
+
+        res = parseBMS(text);
 
         if (res.timeline_master.length === 0) {
             throw new Error("ノーツなし");
@@ -355,9 +402,19 @@ export async function processBMSData(uint8array) {
         if (!has6thOr7thKey) {
             throw new Error("7鍵ではありません");
         }
-
-        return res;
     }
+
+    // オブジェクト数（total_notes）が10万を超える場合のチェック
+    if (res.song_info.total_notes > 100000) {
+        throw new Error(`譜面のオブジェクト数が多すぎます (約 ${res.song_info.total_notes} オブジェクト)。10万オブジェクト以内の譜面のみ推定可能です。`);
+    }
+
+    // 曲の長さチェック
+    if (res.song_info.song_last_ms > 3600000) {
+        throw new Error(`譜面が長すぎます (${Math.round(res.song_info.song_last_ms / 1000 / 60)}分)。1時間以内の譜面のみ推定可能です。`);
+    }
+
+    return res;
 }
 
 
